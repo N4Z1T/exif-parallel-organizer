@@ -35,7 +35,6 @@ Designed for photographers and data hoarders, this script ensures your folder st
     ```bash
     python3 -m venv venv
     source venv/bin/activate  # On Windows use: venv\Scripts\activate
-    pip install -r requirements.txt
     ```
 
 3.  **Install Dependencies:**
