@@ -27,7 +27,7 @@ Designed for photographers and data hoarders, this script ensures your folder st
 
 1.  **Clone the repository:**
     ```bash
-    git clone url
+    git clone https://github.com/N4Z1T/exif-date-organizer.git
     cd exif-date-organizer
     ```
 
