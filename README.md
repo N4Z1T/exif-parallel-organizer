@@ -33,8 +33,8 @@ Ideal for photographers, data hoarders, and Synology NAS users who want to stand
 
 1.  **Clone the repository:**
     ```bash
-    git clone [https://github.com/yourusername/media-folder-renamer.git](https://github.com/yourusername/media-folder-renamer.git)
-    cd media-folder-renamer
+    git clone https://github.com/N4Z1T/exif-date-organizer.git
+    cd exif-date-organizer
     ```
 
 2.  **Create a Virtual Environment (Recommended):**
@@ -54,25 +54,25 @@ This tool uses Command Line Arguments. You do not need to edit the script to cha
 
 ### Basic Syntax
 ```bash
-python renamer_pro.py [TARGET_PATH] [OPTIONS]
+python exif-date-organizer.py [TARGET_PATH] [OPTIONS]
 ```
 
 ### Examples
 1. Dry Run (Simulation - Safe to run anytime) Shows what would happen without changing anything.
 ```bash
-python renamer_pro.py "/Users/Admin/Pictures/2026"
+python exif-date-organizer.py "/Users/Admin/Pictures/2026"
 ```
 2. Live Rename (Apply Changes) Actually renames the folders.
    ```bash
-   python renamer_pro.py "/Users/Admin/Pictures/2026" --live
+   python exif-date-organizer.py "/Users/Admin/Pictures/2026" --live
    ```
 3. Strict Mode (High Confidence) Only rename if 80% of files match the date.
    ```bash
-   python renamer_pro.py "/Users/Admin/Pictures/2026" --confidence 0.8 --live
+   python exif-date-organizer.py "/Users/Admin/Pictures/2026" --confidence 0.8 --live
    ```
 4. Non-Interactive (Silent Mode) Great for running in the background. Automatically skips folders with missing metadata.
    ```bash
-   python renamer_pro.py "/Users/Admin/Pictures/2026" --live --non-interactive
+   python exif-date-organizer.py "/Users/Admin/Pictures/2026" --live --non-interactive
    ```
 
 ##  How It Works
