@@ -29,10 +29,14 @@ from hachoir.metadata import extractMetadata
 # =======================
 # CONFIG
 # =======================
-LOG_FILENAME = "renamer_fix.log"
+LOG_FILENAME = "renamer_v7.log"
 IMAGE_EXT = ('.jpg', '.jpeg', '.png', '.tiff', '.heic')
 VIDEO_EXT = ('.mp4', '.mov', '.avi', '.mkv', '.3gp', '.m4v')
-DATE_OUTPUT_FORMAT = "%Y-%m-%d"  # ISO Standard
+DATE_OUTPUT_FORMAT = "%Y-%m-%d"
+
+# SENARAI FOLDER/FAIL SAMPAH YANG PERLU DISKIP (Synology & OS Junk)
+IGNORED_DIRS = {'@eaDir', '#recycle', '.DS_Store', 'Thumbs.db'}
+IGNORED_FILES = {'SYNOFILE_THUMB', 'desktop.ini', '.DS_Store'}
 
 # =======================
 # LOGGING
@@ -48,28 +52,31 @@ logging.basicConfig(
 # UTILS
 # =======================
 def setup_arguments():
-    parser = argparse.ArgumentParser(description="Rename ONLY main folders based on recursive media dates.")
+    parser = argparse.ArgumentParser(description="Rename ONLY main folders based on recursive media dates (Synology Optimized).")
     parser.add_argument("path", help="Path induk (cth: /volume1/photo/2026)")
     parser.add_argument("--live", action="store_true", help="Jalankan rename sebenar")
     parser.add_argument("--confidence", type=float, default=0.6, help="Min confidence (0.0 - 1.0)")
     parser.add_argument("--non-interactive", action="store_true", help="Auto-skip jika tiada metadata")
+    
+    parser.add_argument("--case", 
+                        choices=['title', 'upper', 'lower', 'sentence', 'original'], 
+                        default='title',
+                        help="Pilih format huruf: title (Default), upper, lower, sentence, original")
+    
     return parser.parse_args()
 
-def clean_folder_name(foldername):
-    """
-    Membersihkan nama folder:
-    1. Buang tarikh lama di depan.
-    2. Tukar format jadi Title Case (Huruf Besar Setiap Perkataan).
-    """
-    # Buang nombor/tarikh di depan
+def clean_folder_name(foldername, case_type='title'):
     cleaned = re.sub(r"^[\d\.\-\/\s]+", "", foldername)
-    
-    # Kalau nama kosong lepas clean, return asal
     if not cleaned.strip(): return foldername
+    cleaned = cleaned.strip()
+
+    if case_type == 'upper': return cleaned.upper()
+    elif case_type == 'lower': return cleaned.lower()
+    elif case_type == 'title': return cleaned.title()
+    elif case_type == 'sentence': return cleaned.capitalize()
+    elif case_type == 'original': return cleaned
     
-    # .strip() buang space tepi
-    # .title() tukar "bacaan yassin" -> "Bacaan Yassin"
-    return cleaned.strip().title()
+    return cleaned.title()
 
 def get_unique_path(path):
     counter = 1
@@ -120,24 +127,27 @@ def get_date_from_video(filepath):
     return None
 
 def collect_dates_recursive(root_folder, non_interactive):
-    """
-    Fungsi ini masuk ke dalam SEMUA subfolder (CANON, NIKON, etc)
-    untuk KUMPUL tarikh sahaja, tapi TIDAK rename folder dalam tu.
-    """
     date_counter = Counter()
-    files_needing_input = [] # Simpan list untuk tanya user nanti
+    files_needing_input = [] 
     
-    # Kita guna os.walk di sini untuk scan deep ke dalam
     all_files = []
-    for dirpath, _, filenames in os.walk(root_folder):
+    
+    # === UPDATED: Logic ignore @eaDir ===
+    for dirpath, dirnames, filenames in os.walk(root_folder):
+        # 1. Skip folder sistem Synology (@eaDir) dari dilawati
+        dirnames[:] = [d for d in dirnames if d not in IGNORED_DIRS]
+        
         for f in filenames:
+            # 2. Skip fail sistem jika terserempak
+            if any(junk in f for junk in IGNORED_FILES):
+                continue
+
             if f.lower().endswith(IMAGE_EXT + VIDEO_EXT):
                 all_files.append(os.path.join(dirpath, f))
 
     if not all_files:
-        return None, False # Tiada file
+        return None, False
 
-    # Progress bar untuk file scanning
     iterator = tqdm(all_files, unit="file", leave=False) if TQDM_AVAILABLE else all_files
 
     for filepath in iterator:
@@ -148,30 +158,26 @@ def collect_dates_recursive(root_folder, non_interactive):
         if date_obj:
             date_counter[date_obj.strftime("%Y-%m-%d")] += 1
         else:
-            # Jika tiada metadata, kita simpan dulu, nanti handle
             files_needing_input.append(filepath)
 
-    # Handle fail tiada metadata (Interaktif)
     for filepath in files_needing_input:
-        # Jika dah cukup majoriti, tak payah tanya user pun takpe (Optional logic)
-        # Tapi ikut spec asal, kita fallback ke FileSystem atau tanya user
-        
         if non_interactive:
-            # Auto fallback ke file system date kalau non-interactive
             fs_date = get_filesystem_date(filepath)
             if fs_date: date_counter[fs_date.strftime("%Y-%m-%d")] += 1
             continue
 
-        # Tanya user (Paused)
         fname = os.path.basename(filepath)
         parent = os.path.basename(os.path.dirname(filepath))
+        
+        if TQDM_AVAILABLE: iterator.clear()
+        
         print(f"\n[!] Metadata Missing: {fname} (in /{parent})")
         
         while True:
             c = input("    [S]kip Folder | [I]gnore File | [M]anual Date | [Q]uit >> ").upper()
             if c == 'Q': sys.exit(0)
-            if c == 'S': return None, True # Signal untuk skip seluruh folder BAPA
-            if c == 'I': break # Ignore file ni
+            if c == 'S': return None, True 
+            if c == 'I': break 
             if c == 'M':
                 m = input("    YYYY-MM-DD: ").strip()
                 try:
@@ -179,11 +185,13 @@ def collect_dates_recursive(root_folder, non_interactive):
                     date_counter[d.strftime("%Y-%m-%d")] += 1
                     break
                 except ValueError: print("    Invalid.")
+        
+        if TQDM_AVAILABLE: iterator.refresh()
     
     return date_counter, False
 
 # =======================
-# MAIN PROCESS (UPDATED)
+# MAIN PROCESS
 # =======================
 def process_folders(args):
     target_path = os.path.abspath(args.path)
@@ -192,35 +200,35 @@ def process_folders(args):
     print(f"\n{'='*40}")
     print(f" TARGET: {target_path}")
     print(f" MODE  : {'[DRY RUN]' if dry_run else '[LIVE]'}")
-    print(f" NOTE  : Only renaming top-level subfolders.")
+    print(f" CASE  : {args.case.upper()}")
     print(f"{'='*40}\n")
 
     if not os.path.exists(target_path):
         print("Path not found.")
         return
 
-    # LIST HANYA FOLDER UTAMA (Level 1)
-    # Ini menghalang script masuk rename sub-sub-folder
     try:
         subdirs = [f.path for f in os.scandir(target_path) if f.is_dir()]
     except OSError as e:
         print(f"Error accessing path: {e}")
         return
 
-    subdirs.sort() # Sort supaya kemas masa process
+    subdirs.sort()
 
     for folder_path in subdirs:
         folder_name = os.path.basename(folder_path)
+        
+        # Skip @eaDir di level utama juga
+        if folder_name in IGNORED_DIRS: continue
+
         print(f"Processing: {folder_name}...")
 
-        # 1. Deep Scan untuk cari tarikh (Masuk CANON dsb)
         date_stats, should_skip = collect_dates_recursive(folder_path, args.non_interactive)
 
         if should_skip or not date_stats:
-            logging.info(f"Skipped {folder_name} (No valid media/User skipped)")
+            logging.info(f"Skipped {folder_name}")
             continue
 
-        # 2. Kira Majoriti
         most_common_date_str, count = date_stats.most_common(1)[0]
         total_files = sum(date_stats.values())
         confidence = count / total_files
@@ -229,8 +237,8 @@ def process_folders(args):
             print(f"   -> [SKIP] Low Confidence ({confidence:.2f})")
             continue
 
-        # 3. Rename Folder BAPA Sahaja
-        clean_name = clean_folder_name(folder_name)
+        clean_name = clean_folder_name(folder_name, args.case)
+        
         date_final = datetime.strptime(most_common_date_str, "%Y-%m-%d")
         new_name = f"{date_final.strftime(DATE_OUTPUT_FORMAT)} {clean_name}"
 
