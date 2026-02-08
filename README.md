@@ -1,30 +1,26 @@
-# EXIF Date Organizer
+# EXIF Parallel Organizer
 
-A Python script to automatically organize and rename media folders based on the creation dates embedded in images and videos. This tool provides intelligent date extraction, confidence-based renaming, and optional AI-powered title casing and Malay spelling correction for a streamlined media management workflow.
+A high-performance Python script designed to automatically organize and rename large collections of media folders. Leveraging multi-threading, this tool processes folders in parallel to drastically reduce execution time. It intelligently extracts creation dates from images and videos, uses a confidence-based system to ensure accuracy, and integrates with Google's Generative AI for advanced title formatting and spelling correction.
 
-## Features
+## Key Features
 
-*   **Automated Folder Renaming:** Renames media folders to a `YYYY-MM-DD Folder Name` format.
-*   **Intelligent Date Extraction:** Accurately extracts creation dates from a wide range of image formats (JPG, JPEG, PNG, TIFF, HEIC) using EXIF data and from video formats (MP4, MOV, AVI, MKV, 3GP, M4V) using `hachoir`.
-*   **Confidence-Based Renaming:** Implements a customizable confidence threshold (based on the most prevalent date within a folder) to prevent mis-renaming due to insufficient or ambiguous metadata.
-*   **AI Integration (Optional):** Utilizes Google Generative AI (Gemma/Gemini) for advanced folder name processing:
-    *   Converts folder names to proper Title Case.
-    *   Corrects common Malay spelling errors.
-    *   Preserves and respects acronyms (e.g., KADA, JKR, KPKM) in uppercase.
-    *   Automatically selects the most suitable available Gemma or Gemini model.
-*   **Dry Run Mode:** Offers a safe preview mode to simulate all renaming operations without making actual changes to your file system.
-*   **Detailed Logging:** Comprehensive logs of all actions, including successful renames, skipped folders, and errors, are recorded in `exif-date-organizer.log`.
-*   **System File Exclusion:** Automatically ignores common system-generated directories and files (e.g., `@eaDir`, `.DS_Store`, `Thumbs.db`).
-*   **Duplicate Name Resolution:** Gracefully handles potential naming conflicts by appending numerical suffixes (e.g., `(1)`, `(2)`) to ensure unique folder paths.
+*   **🚀 High-Speed Parallel Processing:** Utilizes a multi-threaded worker pool to process multiple folders concurrently, making it exceptionally fast for organizing large archives with hundreds or thousands of directories.
+*   **🧠 Intelligent Date Extraction:** Accurately extracts creation dates from a wide range of image formats (JPG, JPEG, PNG, TIFF, HEIC) and video formats (MP4, MOV, AVI, MKV, 3GP, M4V).
+*   **🔒 AI Rate-Limit Safety:** Implements a thread-safe locking mechanism to serialize calls to the AI API, preventing rate-limit errors (HTTP 429) while still benefiting from parallel file I/O.
+*   **✅ Confidence-Based Renaming:** Employs a customizable confidence threshold to prevent incorrect renames, skipping folders where date metadata is ambiguous or insufficient.
+*   **🤖 Optional AI-Powered Naming:** Integrates with Google Generative AI (Gemma/Gemini) to automatically format folder names with proper Title Case, correct Malay spelling, and preserve important acronyms.
+*   **🛡️ Safe Dry Run Mode:** Includes a dry-run mode by default, allowing you to preview all proposed changes safely before any modifications are made to your file system.
+*   **📊 Comprehensive Reporting:** Provides a detailed summary at the end of each run, showing renamed, skipped, unchanged, and errored folders, with a sample list of skipped items for quick review.
+*   **✍️ Detailed Logging:** All operations are meticulously logged to `exif-organizer-parallel.log` for easy auditing and debugging.
 
 ## Installation
 
-To use the EXIF Date Organizer, ensure you have Python 3 installed.
+Ensure you have Python 3 installed.
 
 1.  **Clone the repository:**
     ```bash
-    git clone https://github.com/N4Z1T/exif-date-organizer.git
-    cd exif-date-organizer
+    git clone https://github.com/N4Z1T/exif-parallel-organizer.git
+    cd exif-parallel-organizer
     ```
 
 2.  **Install core dependencies:**
@@ -37,14 +33,14 @@ To use the EXIF Date Organizer, ensure you have Python 3 installed.
         ```bash
         pip install hachoir
         ```
-    *   **HEIC Support (Pillow-Heif):** Enables date extraction from HEIC image files.
+    *   **HEIC Support (Pillow-Heif):** Enables date extraction from Apple's HEIC image format.
         ```bash
         pip install pillow-heif
         ```
 
 ## Usage
 
-Execute the script from your terminal, providing the target folder path and any desired options.
+Run the script from your terminal, pointing it at the directory containing your media folders.
 
 ```bash
 python exif-date-organizer.py <path_to_target_folder> [OPTIONS]
@@ -52,59 +48,50 @@ python exif-date-organizer.py <path_to_target_folder> [OPTIONS]
 
 ### Arguments
 
-*   `<path_to_target_folder>` (Required): The absolute or relative path to the root directory containing the media folders you wish to organize.
+*   `<path_to_target_folder>` (Required): The path to the root directory containing the folders you want to organize.
 
 ### Options
 
-*   `--live`: **Executes the renaming operations.** If this flag is omitted, the script will perform a dry run, reporting planned changes without modifying your files.
-*   `--confidence <value>`: Sets the minimum confidence level (a float between 0.0 and 1.0) required for a folder to be renamed. This confidence is calculated based on the proportion of files sharing the most common creation date within that folder. Default is `0.6` (60%).
-*   `--non-interactive`: (Currently reserved for future enhancements) Automatically handles cases of missing or insufficient metadata without requiring user input.
-*   `--case <type>`: Defines the casing format for folder names when AI processing is not enabled. Valid options include `title`, `upper`, `lower`, and `sentence`. The default setting is `title`.
-*   `--ai-api-key <YOUR_GOOGLE_AI_API_KEY>`: Your API Key from Google AI Studio. Providing this key enables the advanced AI-powered title casing and Malay spelling correction features. Obtain your key from [Google AI Studio](https://aistudio.google.com/app/apikey).
+*   `--workers <number>`: Sets the number of parallel threads to use for processing folders. A higher number can significantly speed up execution on systems with many CPU cores. Default is `4`.
+*   `--live`: **Executes the renaming operations.** Without this flag, the script performs a safe dry run.
+*   `--confidence <value>`: Sets the minimum confidence level (0.0 to 1.0) required to rename a folder. Default is `0.6`.
+*   `--case <type>`: Defines the casing for folder names if AI is disabled (`title`, `upper`, `lower`, `sentence`). Default is `title`.
+*   `--ai-api-key <YOUR_API_KEY>`: Your Google AI Studio API Key. Enables AI-powered naming and spelling correction. Get your key from [Google AI Studio](https://aistudio.google.com/app/apikey).
+*   `--non-interactive`: (Reserved for future use) Auto-skips any interactive prompts.
 
 ## Examples
 
-**1. Perform a Dry Run (Highly Recommended First Step):**
-This command will simulate the renaming process and display all proposed changes without altering any files.
+**1. Dry Run with 8 Parallel Workers:**
+Preview the changes using 8 threads for faster scanning.
 
 ```bash
-python exif-date-organizer.py /Volumes/MyExternalDrive/PhotosAndVideos
+python exif-date-organizer.py /path/to/my/media --workers 8
 ```
 
-**2. Execute Renaming with AI-Powered Corrections:**
-This command will apply the renaming changes and leverage the AI model for intelligent text formatting.
+**2. Live Run with AI and Custom Confidence:**
+Execute the renaming process with AI corrections, requiring 75% date confidence.
 
 ```bash
-python exif-date-organizer.py /Volumes/MyExternalDrive/PhotosAndVideos --live --ai-api-key YOUR_GOOGLE_AI_API_KEY
+python exif-date-organizer.py "C:\Users\MyUser\Pictures\Vacation Photos" --live --confidence 0.75 --ai-api-key YOUR_GOOGLE_AI_API_KEY
 ```
-
-**3. Live Renaming with Custom Confidence and Specific Casing (without AI):**
-
-```bash
-python exif-date-organizer.py C:\Users\MyUser\MediaArchive --live --confidence 0.75 --case upper
-```
-
-## Logging
-
-All operations and events are meticulously logged to `exif-date-organizer.log`, located in the same directory as the script. This log file provides a detailed record of renamed folders, skipped folders, and any encountered errors.
 
 ## How It Works
 
-The script operates by systematically traversing through each subfolder within the specified target path:
+The script's parallel architecture is designed for maximum efficiency:
 
-1.  **Metadata Collection:** It scans all image and video files within each subfolder to extract creation date information from their embedded metadata (EXIF for images, `hachoir` for videos).
-2.  **Date Analysis:** The collected dates are analyzed to determine the most frequently occurring creation date within the folder.
-3.  **Confidence Check:** A confidence score is computed. If this score falls below the user-defined `--confidence` threshold, the folder is safely skipped to avoid unreliable renames.
-4.  **Name Preparation:** The original folder name is cleaned by removing any leading date or numerical prefixes.
-5.  **AI Enhancement (if enabled):** If an `--ai-api-key` is provided, the cleaned folder name is sent to a Google Generative AI model. The AI processes the name to apply proper title casing, correct Malay spelling, and preserve existing acronyms.
-6.  **New Name Construction:** A new, standardized folder name is constructed in the format `YYYY-MM-DD Cleaned Folder Name`.
-7.  **Execution or Simulation:** If the `--live` flag is present, the folder is actually renamed. Otherwise, the proposed rename is reported without making any file system modifications (dry run).
-8.  **Final Report:** Upon completion, a comprehensive summary report is generated, detailing all renamed, skipped, and error-affected folders.
+1.  **Initialization:** The script first identifies all subdirectories in the target path.
+2.  **Worker Pool:** A `ThreadPoolExecutor` is created with a user-defined number of worker threads.
+3.  **Job Distribution:** Each folder is submitted as a separate job to the thread pool. A `tqdm` progress bar tracks the completion of these high-level tasks.
+4.  **Parallel File Scanning:** Inside each worker thread, the script scans all media files within its assigned folder to collect creation dates. This I/O-bound task runs concurrently across all workers.
+5.  **Synchronized AI Calls:** If AI processing is enabled, each worker thread must acquire a shared lock before making a request to the Google AI API. This critical step ensures that API calls are sent one at a time, respecting rate limits and preventing errors, while other threads continue their file-scanning work.
+6.  **Execution or Simulation:** After determining the correct new name, the worker renames the folder (if in `--live` mode) or logs the proposed change (if in dry-run mode). Console output is also synchronized with a lock to prevent garbled text.
+7.  **Result Aggregation:** The main thread collects the results (renamed, skipped, etc.) from each completed worker.
+8.  **Final Report:** Once all folders have been processed, a final, clean report is printed to the console, summarizing the entire operation.
 
 ## Contributing
 
-Contributions, issues, and feature requests are welcome! Feel free to check the [issues page](https://github.com/N4Z1T/exif-date-organizer/issues) or fork the repository and submit pull requests.
+Contributions, issues, and feature requests are welcome! Feel free to check the [issues page](https://github.com/N4Z1T/exif-parallel-organizer/issues) or fork the repository and submit pull requests.
 
 ## License
 
-This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for more details.
+This project is licensed under the MIT License.
